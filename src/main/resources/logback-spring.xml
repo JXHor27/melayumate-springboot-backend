@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <include resource="org/springframework/boot/logging/logback/defaults.xml" />
+    <property name="PID" value="${PID:-unknown}"/>
+
+    <springProperty scope="context" name="APP_NAME" source="spring.application.name" defaultValue="demo"/>
+
+    <appender name="Console" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <!--
+                THE FIX: Changed %pid to ${PID}
+            -->
+            <Pattern>
+                %d{ISO8601} %clr([%X{traceId:-NO_ID}]){blue} %clr(%-5level) %clr(${PID}){magenta} --- [%property{APP_NAME}] [%15.15thread] %clr(%-40.40logger{39}){cyan} : %msg%n
+            </Pattern>
+        </encoder>
+    </appender>
+
+    <root level="info">
+        <appender-ref ref="Console" />
+    </root>
+
+</configuration>
