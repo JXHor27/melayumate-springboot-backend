@@ -26,7 +26,7 @@ public interface QuestionMapper {
     @Delete("DELETE FROM questions WHERE question_id = #{questionId}")
     void deleteQuestion(String questionId);
 
-    @Select("SELECT COUNT(*) FROM questions WHERE lesson_id = #{lessonId} ORDER BY question_order")
+    @Select("SELECT COUNT(*) FROM questions WHERE lesson_id = #{lessonId} ORDER BY question_id")
     int countByLessonId(String lessonId);
 
     @Select("SELECT * FROM questions WHERE question_id = #{questionId}")
