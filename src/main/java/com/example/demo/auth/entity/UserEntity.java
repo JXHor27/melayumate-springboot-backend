@@ -14,5 +14,4 @@ public class UserEntity {
     private String email;
     private String password;
     private Role role;
-    private int dailyGoal;
 }

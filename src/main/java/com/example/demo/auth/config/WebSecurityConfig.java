@@ -3,6 +3,7 @@ package com.example.demo.auth.config;
 import com.example.demo.auth.interceptor.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -35,13 +36,19 @@ public class WebSecurityConfig {
     @Autowired
     private final AuthenticationProvider authenticationProvider;
 
+    @Value("${application.student-frontend.url}")
+    private String clientOrigin;
+
+    @Value("${application.lecturer-frontend.url}")
+    private String lecturerOrigin;
+
     @Bean
     public WebMvcConfigurer corsConfigurer() {
         return new WebMvcConfigurer() {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**")
-                        .allowedOrigins("http://localhost:5173")
+                        .allowedOrigins(clientOrigin, lecturerOrigin)
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")
                         .allowedHeaders("*")
                         .allowCredentials(true);
@@ -56,8 +63,9 @@ public class WebSecurityConfig {
                 .cors(withDefaults())
                 .csrf(csrf -> csrf.disable()) // Disable CSRF for stateless APIs
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/swagger-ui/**").permitAll() // Swagger UI
+                        .requestMatchers("/v3/**").permitAll() // OpenAPI docs
                         .requestMatchers("/api/v1/auth/**").permitAll() // Public endpoints
-                        .requestMatchers("/api/speech-proxy/**").permitAll()
                         .requestMatchers("/ws-chat/**").permitAll()
                         .anyRequest().authenticated() // All other requests need authentication
                 )

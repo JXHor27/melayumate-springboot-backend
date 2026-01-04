@@ -1,44 +1,38 @@
 package com.example.demo.auth.service;
 
+import com.example.demo.auth.dto.PasswordChangeRequest;
 import com.example.demo.auth.dto.PasswordResetRequest;
 import com.example.demo.auth.dto.RegisterRequest;
-import com.example.demo.auth.entity.PasswordResetToken;
-import com.example.demo.auth.repo.PasswordResetMapper;
-import com.example.demo.dashboard.service.StatsService;
+import com.example.demo.modules.dashboard.service.StatsService;
 import com.example.demo.enums.Role;
 import com.example.demo.exception.CredentialExistException;
 import com.example.demo.auth.repo.UserMapper;
-import com.example.demo.exception.EmailNotFoundException;
-import com.example.demo.id.IdGenerator;
+import com.example.demo.exception.PasswordResetException;
+import com.example.demo.exception.ResourceNotFoundException;
+import com.example.demo.service.IdGeneratorService;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import com.example.demo.auth.entity.UserEntity;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.security.SecureRandom;
-import java.time.Instant;
-import java.util.Optional;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
 public class UserManagementService {
 
     private static final Log logger = LogFactory.getLog(UserManagementService.class);
-    private static final int TOKEN_VALIDITY_MINUTES = 5;
 
     @Autowired
     private final UserMapper userMapper;
 
     @Autowired
-    private final IdGenerator idGenerator;
+    private final IdGeneratorService idGeneratorService;
 
     @Autowired
     private final PasswordEncoder passwordEncoder;
@@ -51,7 +45,21 @@ public class UserManagementService {
 
 
     public UserEntity findUserByEmail(String email){
+        logger.info("Fetching user by email: " + email);
         return userMapper.getUserByEmail(email);
+    }
+
+    /**
+     * Retrieves user details by user ID, utilizing caching for performance optimization.
+     * Only matters the username and email.
+     *
+     * @param userId the ID of the user to retrieve
+     * @return the UserEntity corresponding to the provided userId
+     */
+    @Cacheable(value = "userDetails", key = "#userId")
+    public UserEntity findUserById(String userId) {
+        logger.info("Fetching user by ID: " + userId);
+        return userMapper.getUserByUserId(userId);
     }
 
     @Transactional
@@ -73,22 +81,17 @@ public class UserManagementService {
     @Transactional
     public UserEntity registerUser(RegisterRequest request) {
         logger.info("Registering user.");
-
-
         try {
             UserEntity newUser = new UserEntity();
-            String userId = idGenerator.generateUserId();
+            String userId = idGeneratorService.generateUserId();
             newUser.setUserId(userId);
             newUser.setUsername(request.getUsername());
             newUser.setEmail(request.getEmail());
-            newUser.setDailyGoal(0); // default 0
             newUser.setRole(Role.ROLE_USER);
             String hashedPassword = passwordEncoder.encode(request.getPassword());
             newUser.setPassword(hashedPassword);
-
             userMapper.insertUser(newUser);
-            statsService.createInitialStats(userId);
-
+            statsService.createInitialStats(userId, request.getUsername());
             logger.info("User registered successfully: " + newUser);
             return newUser;
         }
@@ -101,11 +104,12 @@ public class UserManagementService {
 
     @Transactional
     public void updatePassword(PasswordResetRequest request) {
-        UserEntity updatedUser = findUserByEmail(request.getEmail());
+        logger.info("Updating password for email: " + request.getEmail());
+        UserEntity updatedUser = userMapper.getUserByEmail(request.getEmail());
         updatedUser.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userMapper.updatePassword(updatedUser);
+        logger.info("Password updated successfully for email: " + request.getEmail());
     }
-
 
     public boolean checkUsernameAlreadyRegistered(String username){
         UserEntity storedUser = userMapper.getUserByUsername(username);
@@ -117,26 +121,34 @@ public class UserManagementService {
         return storedUser != null;
     }
 
+    @Transactional
+    public void changePassword(PasswordChangeRequest passwordChangeRequest) {
+        logger.info("Changing password for user id: " + passwordChangeRequest.getUserId());
+        UserEntity user = userMapper.getUserByUserId(passwordChangeRequest.getUserId());
+        if (user == null) {
+            logger.error("User not found with id: " + passwordChangeRequest.getUserId());
+            throw new ResourceNotFoundException("User not found with id: " + passwordChangeRequest.getUserId());
+        }
 
-//    public void upsertUserStatFlashcard(User user){
-//        user.setUserId(cachedUser.getUserId());
-//        userStatMapper.upsertUserStatFlashcard(user);
-//    }
-//
-//    public void upsertUserStatScenario(User user){
-//        user.setUserId(cachedUser.getUserId());
-//        userStatMapper.upsertUserStatScenario(user);
-//    }
-//
-//    public void upsertUserExp(User user){
-//        user.setUserId(cachedUser.getUserId());
-//        userStatMapper.upsertUserExp(user);
-//    }
-//
-//
-//
-//    public User getUserStat(int userId){
-//        return userStatMapper.getUserStat(userId);
-//    }
+        // Verify old password
+        if (!passwordEncoder.matches(passwordChangeRequest.getOldPassword(), user.getPassword())) {
+            logger.error("Old password does not match for user id: " + passwordChangeRequest.getUserId());
+            throw new PasswordResetException("Old password is incorrect.");
+        }
 
+        // Check new password is different from old password
+        if(passwordEncoder.matches(passwordChangeRequest.getNewPassword(), user.getPassword())) {
+            logger.error("New password cannot be the same as the old password for user id: " + passwordChangeRequest.getUserId());
+            throw new PasswordResetException("New password cannot be the same as the old password.");
+        }
+
+        // Check new password and confirmation match
+        if(!Objects.equals(passwordChangeRequest.getNewPassword(), passwordChangeRequest.getConfirmNewPassword())) {
+            logger.error("New password and confirmation do not match for user id: " + passwordChangeRequest.getUserId());
+            throw new PasswordResetException("New password and confirmation do not match.");
+        }
+        user.setPassword(passwordEncoder.encode(passwordChangeRequest.getNewPassword()));
+        userMapper.updatePassword(user);
+        logger.info("Password changed successfully for user id: " + passwordChangeRequest.getUserId());
+    }
 }

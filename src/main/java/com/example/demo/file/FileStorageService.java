@@ -1,12 +1,13 @@
 package com.example.demo.file;
 
-import com.example.demo.id.IdGenerator;
+import com.example.demo.service.IdGeneratorService;
 import lombok.RequiredArgsConstructor;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
@@ -32,7 +33,7 @@ public class FileStorageService {
     private final S3Client s3Client;
 
     @Autowired
-    private final IdGenerator idGenerator;
+    private final IdGeneratorService idGeneratorService;
 
     @Value("${aws.s3.bucket-name}")
     private String bucketName;
@@ -50,7 +51,7 @@ public class FileStorageService {
             String folder = "audio/";
 
             // 2. Generate the unique filename.
-            String uniqueFileName = idGenerator.generateAudioFileId() + "_" + file.getOriginalFilename();
+            String uniqueFileName = idGeneratorService.generateAudioFileId() + "_" + file.getOriginalFilename();
 
             // 3. Combine the folder and filename to create the full object key.
             String objectKey = folder + uniqueFileName;
@@ -82,9 +83,10 @@ public class FileStorageService {
     }
 
     /**
-     * Deletes a file from the S3 bucket.
-     * @param objectKey The unique key of the object to delete (e.g., "audio/xyz.wav")
+     * Deletes a file from the S3 bucket asynchronously.
+     * @param objectKey The unique object key of the file to delete (e.g., "audio/xyz.wav")
      */
+    @Async
     public void deleteFile(String objectKey) {
         try {
             logger.info("Attempting to delete file from S3 with key: " + objectKey);

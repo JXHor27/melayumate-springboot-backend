@@ -4,9 +4,8 @@ package com.example.demo.auth.service;
 import com.example.demo.auth.entity.PasswordResetToken;
 import com.example.demo.auth.entity.UserEntity;
 import com.example.demo.auth.repo.PasswordResetMapper;
-import com.example.demo.auth.repo.UserMapper;
 import com.example.demo.exception.EmailNotFoundException;
-import com.example.demo.id.IdGenerator;
+import com.example.demo.service.IdGeneratorService;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -42,7 +41,7 @@ public class PasswordResetService {
     private final PasswordResetMapper passwordResetMapper;
 
     @Autowired
-    private final IdGenerator idGenerator;
+    private final IdGeneratorService idGeneratorService;
 
     /**
      * Generates a password reset token, saves it to the database, and sends it via email.
@@ -68,7 +67,7 @@ public class PasswordResetService {
         Instant expiryDate = Instant.now().plusSeconds(TOKEN_VALIDITY_MINUTES * 60);
 
         // Save hashed token to database
-        String tokenId = idGenerator.generateResetTokenId();
+        String tokenId = idGeneratorService.generateResetTokenId();
         PasswordResetToken token = new PasswordResetToken(tokenId, userId, hashedToken, expiryDate);
 
         passwordResetMapper.saveToken(token);

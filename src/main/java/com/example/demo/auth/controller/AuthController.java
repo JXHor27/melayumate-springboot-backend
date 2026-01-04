@@ -7,7 +7,7 @@ import com.example.demo.auth.service.JwtService;
 
 import com.example.demo.auth.service.PasswordResetService;
 import com.example.demo.auth.service.UserManagementService;
-import com.example.demo.id.IdGenerator;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,7 +17,6 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -25,6 +24,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
+@Tag(name = "User Authentication", description = "APIs for managing users auth")
 public class AuthController {
 
     @Autowired
@@ -82,7 +82,7 @@ public class AuthController {
      * @return a ResponseEntity with a success message or an error message
      */
     @PostMapping("/verify-email-code")
-    public ResponseEntity<Map<String, String>> verifyEmailCode(@RequestBody VerifyCodeRequest verifyCodeRequest) {
+    public ResponseEntity<Map<String, String>> verifyEmailCode(@Valid @RequestBody VerifyCodeRequest verifyCodeRequest) {
         boolean isTokenValid = emailVerificationService.validateEmailVerificationToken(verifyCodeRequest.getEmail(), verifyCodeRequest.getCode());
 
         if (!isTokenValid) {
@@ -127,7 +127,7 @@ public class AuthController {
      * @return a ResponseEntity with a success message or an error message
      */
     @PostMapping("/verify-reset-code")
-    public ResponseEntity<Map<String, String>> verifyCode(@RequestBody VerifyCodeRequest verifyCodeRequest) {
+    public ResponseEntity<Map<String, String>> verifyCode(@Valid @RequestBody VerifyCodeRequest verifyCodeRequest) {
         boolean isTokenValid = passwordResetService.validatePasswordResetToken(verifyCodeRequest.getEmail(), verifyCodeRequest.getCode());
 
         if (!isTokenValid) {
@@ -145,7 +145,7 @@ public class AuthController {
      * @return a ResponseEntity with a success message or an error message
      */
     @PostMapping("/reset-password")
-    public ResponseEntity<Map<String, String>> resetPassword(@RequestBody PasswordResetRequest passwordResetRequest) {
+    public ResponseEntity<Map<String, String>> resetPassword(@Valid @RequestBody PasswordResetRequest passwordResetRequest) {
          boolean isTokenValid = passwordResetService.validatePasswordResetToken(passwordResetRequest.getEmail(), passwordResetRequest.getCode());
 
          if (!isTokenValid) {
@@ -156,4 +156,30 @@ public class AuthController {
 
         return ResponseEntity.ok(Map.of("message", "Password has been reset successfully."));
     }
+
+    /**
+     * Change the password for an authenticated user.
+     *
+     * @param passwordChangeRequest the password change request containing userId, old password, and new password
+     * @return a ResponseEntity with a success message
+     */
+    @PostMapping("/change-password")
+    public ResponseEntity<Map<String, String>> changePassword(@Valid @RequestBody PasswordChangeRequest passwordChangeRequest) {
+        userService.changePassword(passwordChangeRequest);
+        return ResponseEntity.ok(Map.of("message", "Password has been changed successfully."));
+    }
+
+    /**
+     * Retrieve user details by user ID.
+     *
+     * @param userId the ID of the user to retrieve
+     * @return a ResponseEntity containing the UserEntity
+     */
+    @GetMapping("/user/{userId}")
+    public ResponseEntity<UserEntity> getUserDetails(@PathVariable String userId) {
+        UserEntity user = userService.findUserById(userId);
+        return ResponseEntity.ok(user);
+    }
+
+
 }

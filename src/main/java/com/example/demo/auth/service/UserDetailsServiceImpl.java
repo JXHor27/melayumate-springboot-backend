@@ -26,7 +26,6 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         if (user == null) {
             throw new UsernameNotFoundException("User not found with username: " + username);
         }
-        String password = user.getPassword();
         return CustomUserDetails.create(user);
     }
 }

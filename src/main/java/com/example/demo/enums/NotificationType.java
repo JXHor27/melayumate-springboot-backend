@@ -1,6 +1,8 @@
 package com.example.demo.enums;
 
 public enum NotificationType {
-    GOAL_REMINDER,
-    ACHIEVEMENT
+    REMINDER,
+    ACHIEVEMENT,
+    BATTLE_CHALLENGE,
+    NEW_LESSON_AVAILABLE
 }

@@ -132,4 +132,29 @@ public class GlobalExceptionHandler {
         body.put("message", "Upload too large");
         return new ResponseEntity<>(body, HttpStatus.BAD_REQUEST);
     }
+
+
+    /**
+     * Handles exceptions when a character unlock does not meet requirements.
+     * Returns a response with a timestamp and a generic error message.
+     */
+    @ExceptionHandler(CharacterRuleException.class)
+    public ResponseEntity<Object> handleCharacterRule(CharacterRuleException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("timestamp", LocalDateTime.now());
+        body.put("message", ex.getMessage());
+        return new ResponseEntity<>(body, HttpStatus.CONFLICT);
+    }
+
+    /**
+     * Handles exceptions during password reset process.
+     * Returns a response with a timestamp and the exception message.
+     */
+    @ExceptionHandler(PasswordResetException.class)
+    public ResponseEntity<Object> handlePasswordResetException(PasswordResetException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("timestamp", LocalDateTime.now());
+        body.put("message", ex.getMessage());
+        return new ResponseEntity<>(body, HttpStatus.BAD_REQUEST);
+    }
 }
