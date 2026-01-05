@@ -95,8 +95,8 @@ public class ScenarioService {
         // Delete associated audio files from S3
         List<Dialogue> dialogueList = dialogueMapper.getDialogueListById(scenarioId);
         for(Dialogue dialogue : dialogueList){
-            if (dialogue.getAudioUrl() != null && !dialogue.getAudioUrl().isEmpty()) {
-                fileStorageService.deleteFile(dialogue.getAudioUrl());
+            if (dialogue.getObjectKey() != null && !dialogue.getObjectKey().isEmpty()) {
+                fileStorageService.deleteFile(dialogue.getObjectKey());
             }
         }
         scenarioMapper.deleteScenario(scenarioId);

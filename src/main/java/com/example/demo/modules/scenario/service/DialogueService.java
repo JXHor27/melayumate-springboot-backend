@@ -116,8 +116,8 @@ public class DialogueService {
         Dialogue dialogue = getDialogueById(dialogueId);
         dialogueMapper.deleteDialogue(dialogueId);
         // Delete associated audio files from S3
-        if (dialogue.getAudioUrl() != null && !dialogue.getAudioUrl().isEmpty()) {
-            fileStorageService.deleteFile(dialogue.getAudioUrl());
+        if (dialogue.getObjectKey() != null && !dialogue.getObjectKey().isEmpty()) {
+            fileStorageService.deleteFile(dialogue.getObjectKey());
         }
         scenarioMapper.updateDialogueNumber(dialogue.getScenarioId(), -1);
         logger.info("Deleted dialogue with id: " + dialogueId);
