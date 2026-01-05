@@ -9,9 +9,13 @@ import org.apache.commons.logging.LogFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.MediaType;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Recover;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -37,23 +41,22 @@ public class SpeechService {
 
     /**
      * Converts text to speech by sending a request to the TTS endpoint.
+     * This method will automatically retry on specific network failures, connection reset due to hugging face application cold-start.
      *
      * @param request The TTSRequest object containing text and parameters.
      * @return A byte array representing the synthesized speech audio.
      * @throws JsonProcessingException If there is an error processing JSON.
      */
+    @Retryable(
+            value = { ResourceAccessException.class },
+            maxAttempts = 3,
+            backoff = @Backoff(delay = 5000)
+    )
     public byte[] textToSpeech(TTSRequest request) throws JsonProcessingException {
         logger.info("Received request: "+ request);
-       // TTSRequest request = new TTSRequest(text);
-       // logger.info("Generated request: "+ request);
-
-        // ... in your Java code
         ObjectMapper mapper = new ObjectMapper();
         String jsonString = mapper.writeValueAsString(request);
         logger.info("JSON: "+ jsonString);
-
-
-        // The RestClient call is already blocking. We just return its result directly.
         return restClient.post()
                 .uri("/tts")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -64,11 +67,17 @@ public class SpeechService {
 
     /**
      * Converts speech to text by sending an audio file to the STT endpoint.
+     * This method will automatically retry on specific network failures, connection reset due to hugging face application cold-start.
      *
      * @param audioFile The audio file to be transcribed.
      * @return The transcribed text in String.
      * @throws IOException If there is an error reading the audio file.
      */
+    @Retryable(
+            value = { ResourceAccessException.class },
+            maxAttempts = 3,
+            backoff = @Backoff(delay = 5000)
+    )
     public String speechToText(MultipartFile audioFile) throws IOException {
         logger.info("Received STT request: "+ audioFile);
 
@@ -80,8 +89,6 @@ public class SpeechService {
             }
         };
         body.add("file", resource);
-
-        // The RestClient call is blocking. We get the response and extract the text.
         STTResponse response = restClient.post()
                 .uri("/stt")
                 .contentType(MediaType.MULTIPART_FORM_DATA)
@@ -92,5 +99,17 @@ public class SpeechService {
         logger.info("STT response: "+ response);
 
         return (response != null) ? response.getText() : null;
+    }
+
+    @Recover
+    public byte[] recoverFromTtsFailure(ResourceAccessException e, TTSRequest request) {
+        logger.error("Final attempt to call TTS service failed after multiple retries for request: " + request + " Error: " + e.getMessage());
+        return null;
+    }
+
+    @Recover
+    public STTResponse recoverFromSttFailure(ResourceAccessException e, MultipartFile file) {
+        logger.error("Final attempt to call STT service failed after multiple retries for file: "+ file.getOriginalFilename() + "Error: " +  e.getMessage());
+        return null;
     }
 }
