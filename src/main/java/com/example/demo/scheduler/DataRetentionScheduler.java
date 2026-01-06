@@ -77,7 +77,7 @@ public class DataRetentionScheduler {
     @Scheduled(cron = "0 30 0 * * ?")
     public void enforceNotificationsRetentionPolicy() {
         // Data retention period
-        LocalDate today = LocalDate.now().plusDays(30); // keep notifications for 30 days
+        LocalDate today = LocalDate.now().minusDays(30); // keep notifications for 30 days
 
         logger.info("Starting data retention task. Deleting notifications older than: " + today);
 
